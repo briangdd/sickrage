@@ -37,6 +37,7 @@ from mako.exceptions import RichTraceback
 from mako.lookup import TemplateLookup
 from requests import HTTPError
 from sqlalchemy import orm, or_
+from tornado import gen
 from tornado.escape import json_encode, recursive_unicode
 from tornado.ioloop import IOLoop
 from tornado.web import RequestHandler, authenticated
@@ -1540,21 +1541,21 @@ class Home(WebHandler):
         if do_update:
             try:
                 sickrage.app.show_queue.updateShow(showObj, force=True)
-                time.sleep(cpu_presets[sickrage.app.config.cpu_preset])
+                gen.sleep(cpu_presets[sickrage.app.config.cpu_preset])
             except CantUpdateShowException as e:
                 errors.append(_("Unable to update show: {}").format(e))
 
         if do_update_exceptions:
             try:
                 update_scene_exceptions(showObj.indexerid, exceptions_list)
-                time.sleep(cpu_presets[sickrage.app.config.cpu_preset])
+                gen.sleep(cpu_presets[sickrage.app.config.cpu_preset])
             except CantUpdateShowException as e:
                 warnings.append(_("Unable to force an update on scene exceptions of the show."))
 
         if do_update_scene_numbering:
             try:
                 xem_refresh(showObj.indexerid, showObj.indexer, True)
-                time.sleep(cpu_presets[sickrage.app.config.cpu_preset])
+                gen.sleep(cpu_presets[sickrage.app.config.cpu_preset])
             except CantUpdateShowException as e:
                 warnings.append(_("Unable to force an update on scene numbering of the show."))
 
@@ -1616,7 +1617,7 @@ class Home(WebHandler):
         except CantRemoveShowException as e:
             sickrage.app.alerts.error(_('Unable to delete this show.'), str(e))
 
-        time.sleep(cpu_presets[sickrage.app.config.cpu_preset])
+        gen.sleep(cpu_presets[sickrage.app.config.cpu_preset])
 
         # Don't redirect to the default page, so the user can confirm that the show was deleted
         return self.redirect('/home/')
@@ -1635,7 +1636,7 @@ class Home(WebHandler):
         except CantRefreshShowException as e:
             sickrage.app.alerts.error(_('Unable to refresh this show.'), str(e))
 
-        time.sleep(cpu_presets[sickrage.app.config.cpu_preset])
+        gen.sleep(cpu_presets[sickrage.app.config.cpu_preset])
 
         return self.redirect("/home/displayShow?show=" + str(showObj.indexerid))
 
@@ -1655,7 +1656,7 @@ class Home(WebHandler):
             sickrage.app.alerts.error(_("Unable to update this show."), str(e))
 
         # just give it some time
-        time.sleep(cpu_presets[sickrage.app.config.cpu_preset])
+        gen.sleep(cpu_presets[sickrage.app.config.cpu_preset])
 
         return self.redirect("/home/displayShow?show=" + str(showObj.indexerid))
 
@@ -1672,7 +1673,7 @@ class Home(WebHandler):
         # search and download subtitles
         sickrage.app.show_queue.download_subtitles(showObj)
 
-        time.sleep(cpu_presets[sickrage.app.config.cpu_preset])
+        gen.sleep(cpu_presets[sickrage.app.config.cpu_preset])
 
         return self.redirect("/home/displayShow?show=" + str(showObj.indexerid))
 
@@ -3551,7 +3552,7 @@ class ManageQueues(Manage):
             sickrage.app.log.info("Daily search forced")
             sickrage.app.alerts.message(_('Daily search started'))
 
-        return self.redirect("/manage/manageQueues/")
+        self.redirect("/manage/manageQueues/")
 
     def forceFindPropers(self):
         # force it to run the next time it looks
