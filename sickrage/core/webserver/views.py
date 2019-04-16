@@ -216,7 +216,7 @@ class BaseHandler(RequestHandler):
     def redirect(self, url, permanent=True, status=None):
         if sickrage.app.config.web_root not in url:
             url = urljoin(sickrage.app.config.web_root + '/', url.lstrip('/'))
-        sickrage.app.io_loop.add_callback(lambda: super(BaseHandler, self).redirect(url, permanent, status))
+        super(BaseHandler, self).redirect(url, permanent, status)
 
     def previous_url(self):
         url = urlparse(self.request.headers.get("referer", "/{}/".format(sickrage.app.config.default_page)))
@@ -414,7 +414,7 @@ class WebRoot(WebHandler):
         super(WebRoot, self).__init__(*args, **kwargs)
 
     def index(self):
-        raise self.redirect("/{}/".format(sickrage.app.config.default_page))
+        self.redirect("/{}/".format(sickrage.app.config.default_page))
 
     def robots_txt(self):
         """ Keep web crawlers out """
