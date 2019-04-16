@@ -231,16 +231,14 @@ class WebHandler(BaseHandler):
     @authenticated
     async def get(self, *args, **kwargs):
         result = await self.route()
-        if result:
-            self.write(result)
+        self.write(result)
 
     @authenticated
     async def post(self, *args, **kwargs):
         result = await self.route()
-        if result:
-            self.write(result)
+        self.write(result)
 
-    async def route(self):
+    def route(self):
         # route -> method obj
         method = getattr(
             self, self.request.path.strip('/').split('/')[::-1][0].replace('.', '_'),
@@ -248,7 +246,7 @@ class WebHandler(BaseHandler):
         )
 
         if method:
-            return await sickrage.app.io_loop.run_in_executor(None, lambda: self.worker(method, **self.request.arguments))
+            return self.worker(method, **self.request.arguments)
 
     def worker(self, function, **kwargs):
         kwargs = recursive_unicode(kwargs)
@@ -414,15 +412,15 @@ class WebRoot(WebHandler):
     def __init__(self, *args, **kwargs):
         super(WebRoot, self).__init__(*args, **kwargs)
 
-    def index(self):
-        self.redirect("/{}/".format(sickrage.app.config.default_page))
+    async def index(self):
+        await self.redirect("/{}/".format(sickrage.app.config.default_page))
 
     def robots_txt(self):
         """ Keep web crawlers out """
         self.set_header('Content-Type', 'text/plain')
         return "User-agent: *\nDisallow: /"
 
-    def messages_po(self):
+    async def messages_po(self):
         """ Get /sickrage/locale/{lang_code}/LC_MESSAGES/messages.po """
         if sickrage.app.config.gui_lang:
             locale_file = os.path.join(sickrage.LOCALE_DIR, sickrage.app.config.gui_lang, 'LC_MESSAGES/messages.po')
@@ -632,9 +630,9 @@ class Home(WebHandler):
 
         return epObj
 
-    def index(self):
+    async def index(self):
         if not len(sickrage.app.showlist):
-            return self.redirect('/home/addShows/')
+            await self.redirect('/home/addShows/')
 
         showlists = OrderedDict({'Shows': []})
         if sickrage.app.config.anime_split_home:
