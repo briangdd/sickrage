@@ -17,7 +17,6 @@
 # along with SiCKRAGE.  If not, see <http://www.gnu.org/licenses/>.
 
 
-
 import os
 import shutil
 import socket
@@ -28,11 +27,14 @@ from tornado.httpserver import HTTPServer
 from tornado.web import Application, RedirectHandler, StaticFileHandler
 
 import sickrage
-from sickrage.core.databases.main import MainDB
 from sickrage.core.helpers import create_https_certificates
-from sickrage.core.webserver.api import ApiHandler
-from sickrage.core.webserver.routes import Route
-from sickrage.core.webserver.views import CalendarHandler, LoginHandler, LogoutHandler
+from sickrage.core.webserver.handlers.api import ApiHandler
+from sickrage.core.webserver.handlers.calendar import CalendarHandler
+from sickrage.core.webserver.handlers.home import HomeHandler, IsAliveHandler, TestSABnzbdHandler, TestTorrentHandler, \
+    TestFreeMobileHandler, TestTelegramHandler, TestJoinHandler, TestGrowlHandler, TestProwlHandler, TestBoxcar2Handler, \
+    TestPushoverHandler, FetchReleasegroupsHandler
+from sickrage.core.webserver.handlers.login import LoginHandler
+from sickrage.core.webserver.handlers.logout import LogoutHandler
 from sickrage.core.websocket import WebSocketUIHandler
 
 
@@ -112,7 +114,8 @@ class WebServer(object):
             autoreload=False,
             gzip=sickrage.app.config.web_use_gzip,
             cookie_secret=sickrage.app.config.web_cookie_secret,
-            login_url='%s/login/' % sickrage.app.config.web_root)
+            login_url='%s/login/' % sickrage.app.config.web_root
+        )
 
         # Websocket handler
         self.app.add_handlers(".*$", [
@@ -170,14 +173,35 @@ class WebServer(object):
              {"path": self.video_root}),
         ])
 
-        # Web Handlers
-        self.app.add_handlers('.*$', Route.get_routes(sickrage.app.config.web_root))
+        # Home Handlers
+        self.app.add_handlers('.*$', [
+            (r'%s/home' % sickrage.app.config.web_root, HomeHandler),
+            (r'%s/home/is_alive' % sickrage.app.config.web_root, IsAliveHandler),
+            (r'%s/home/testSABnzbd' % sickrage.app.config.web_root, TestSABnzbdHandler),
+            (r'%s/home/testTorrent' % sickrage.app.config.web_root, TestTorrentHandler),
+            (r'%s/home/testFreeMobile' % sickrage.app.config.web_root, TestFreeMobileHandler),
+            (r'%s/home/testTelegram' % sickrage.app.config.web_root, TestTelegramHandler),
+            (r'%s/home/testJoin' % sickrage.app.config.web_root, TestJoinHandler),
+            (r'%s/home/testGrowl' % sickrage.app.config.web_root, TestGrowlHandler),
+            (r'%s/home/testProwl' % sickrage.app.config.web_root, TestProwlHandler),
+            (r'%s/home/testBoxcar2' % sickrage.app.config.web_root, TestBoxcar2Handler),
+            (r'%s/home/testPushover' % sickrage.app.config.web_root, TestPushoverHandler),
+            (r'%s/home/fetch_releasegroups' % sickrage.app.config.web_root, FetchReleasegroupsHandler),
+        ])
+
+        # Config Handlers
+        self.app.add_handlers('.*$', [
+        ])
+
+        # Manage Handlers
+        self.app.add_handlers('.*$', [
+        ])
 
         # HTTPS Cert/Key object
         ssl_ctx = None
         if sickrage.app.config.enable_https:
             ssl_ctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
-            ssl_ctx.load_cert_chain(sickrage.app.config.https_cert, sickrage.app.config.https_key)
+        ssl_ctx.load_cert_chain(sickrage.app.config.https_cert, sickrage.app.config.https_key)
 
         # Web Server
         self.server = HTTPServer(self.app, ssl_options=ssl_ctx, xheaders=sickrage.app.config.handle_reverse_proxy)
