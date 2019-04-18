@@ -14,16 +14,15 @@ from sickrage.core.webserver import ApiHandler
 from sickrage.core.webserver.handlers.base import BaseHandler
 
 
-class WebRootHandler(BaseHandler):
-    def __init__(self, *args, **kwargs):
-        super(WebRootHandler, self).__init__(*args, **kwargs)
-
-    def robots_txt(self):
+class RobotsDotTxtHandler(BaseHandler):
+    def get(self):
         """ Keep web crawlers out """
         self.set_header('Content-Type', 'text/plain')
         return "User-agent: *\nDisallow: /"
 
-    def messages_po(self):
+
+class MessagesDotPoHandler(BaseHandler):
+    def get(self):
         """ Get /sickrage/locale/{lang_code}/LC_MESSAGES/messages.po """
         if sickrage.app.config.gui_lang:
             locale_file = os.path.join(sickrage.LOCALE_DIR, sickrage.app.config.gui_lang, 'LC_MESSAGES/messages.po')
@@ -31,12 +30,13 @@ class WebRootHandler(BaseHandler):
                 with open(locale_file, 'r', encoding='utf8') as f:
                     return f.read()
 
-    def apibuilder(self):
+
+class APIBulderHandler(BaseHandler):
+    def get(self):
         def titler(x):
             return (remove_article(x), x)[not x or sickrage.app.config.sort_article]
 
         episodes = {}
-
         for result in MainDB.TVEpisode.query.order_by(MainDB.TVEpisode.season, MainDB.TVEpisode.episode):
 
             if result['showid'] not in episodes:
@@ -64,7 +64,9 @@ class WebRootHandler(BaseHandler):
             action='api_builder'
         )
 
-    def setHomeLayout(self, layout):
+
+class SetHomeLayoutHandler(BaseHandler):
+    def get(self, layout):
         if layout not in ('poster', 'small', 'banner', 'simple', 'coverflow'):
             layout = 'poster'
 
@@ -73,37 +75,40 @@ class WebRootHandler(BaseHandler):
         # Don't redirect to default page so user can see new layout
         return self.redirect("/home/")
 
-    @staticmethod
-    def setPosterSortBy(sort):
 
+class SetPosterSortByHandler(BaseHandler):
+    def get(self, sort):
         if sort not in ('name', 'date', 'network', 'progress'):
             sort = 'name'
 
         sickrage.app.config.poster_sortby = sort
         sickrage.app.config.save()
 
-    @staticmethod
-    def setPosterSortDir(direction):
 
+class SetPosterSortDirHandler(BaseHandler):
+    def get(self, direction):
         sickrage.app.config.poster_sortdir = int(direction)
         sickrage.app.config.save()
 
-    def setHistoryLayout(self, layout):
 
+class SetHistoryLayoutHandler(BaseHandler):
+    def get(self, layout):
         if layout not in ('compact', 'detailed'):
             layout = 'detailed'
 
         sickrage.app.config.history_layout = layout
 
-        return self.redirect("/history/")
+        self.redirect("/history/")
 
-    def toggleDisplayShowSpecials(self, show):
 
+class ToggleDisplayShowSpecialsHandler(BaseHandler):
+    def get(self, show):
         sickrage.app.config.display_show_specials = not sickrage.app.config.display_show_specials
+        self.redirect("/home/displayShow?show=" + show)
 
-        return self.redirect("/home/displayShow?show=" + show)
 
-    def setScheduleLayout(self, layout):
+class SetScheduleLayoutHandler(BaseHandler):
+    def get(self, layout):
         if layout not in ('poster', 'banner', 'list', 'calendar'):
             layout = 'banner'
 
@@ -112,15 +117,17 @@ class WebRootHandler(BaseHandler):
 
         sickrage.app.config.coming_eps_layout = layout
 
-        return self.redirect("/schedule/")
+        self.redirect("/schedule/")
 
-    def toggleScheduleDisplayPaused(self):
 
+class ToggleScheduleDisplayPausedHandler(BaseHandler):
+    def get(self):
         sickrage.app.config.coming_eps_display_paused = not sickrage.app.config.coming_eps_display_paused
+        self.redirect("/schedule/")
 
-        return self.redirect("/schedule/")
 
-    def setScheduleSort(self, sort):
+class SetScheduleSortHandler(BaseHandler):
+    def get(self, sort):
         if sort not in ('date', 'network', 'show'):
             sort = 'date'
 
@@ -131,7 +138,9 @@ class WebRootHandler(BaseHandler):
 
         return self.redirect("/schedule/")
 
-    def schedule(self, layout=None):
+
+class ScheduleHanlder(BaseHandler):
+    def get(self, layout=None):
         next_week = datetime.date.today() + datetime.timedelta(days=7)
         next_week1 = datetime.datetime.combine(next_week,
                                                datetime.datetime.now().time().replace(tzinfo=sickrage.app.tz))
@@ -141,10 +150,9 @@ class WebRootHandler(BaseHandler):
         today = datetime.datetime.now().replace(tzinfo=sickrage.app.tz)
 
         # Allow local overriding of layout parameter
+        layout = sickrage.app.config.coming_eps_layout
         if layout and layout in ('poster', 'banner', 'list', 'calendar'):
             layout = layout
-        else:
-            layout = sickrage.app.config.coming_eps_layout
 
         return self.render(
             'schedule.mako',
@@ -159,7 +167,9 @@ class WebRootHandler(BaseHandler):
             action='schedule'
         )
 
-    def unlink(self):
+
+class UnlinkHandler(BaseHandler):
+    def get(self):
         if not sickrage.app.config.sub_id == self.get_current_user().get('sub'):
             return self.redirect("/{}/".format(sickrage.app.config.default_page))
 
@@ -170,9 +180,11 @@ class WebRootHandler(BaseHandler):
 
         API().token = sickrage.app.oidc_client.logout(API().token['refresh_token'])
 
-        return self.redirect('/logout/')
+        self.redirect('/logout/')
 
-    def quicksearch_json(self, term):
+
+class QuicksearchDotJsonHandler(BaseHandler):
+    def get(self, term):
         shows = sickrage.app.quicksearch_cache.get_shows(term)
         episodes = sickrage.app.quicksearch_cache.get_episodes(term)
 

@@ -535,7 +535,7 @@ $(document).ready(function ($) {
 
                 $("#changelog").on('click', function (event) {
                     event.preventDefault();
-                    $("#changelogModal").find('.modal-body').load(SICKRAGE.srWebRoot + '/changes');
+                    $("#changelogModal").find('.modal-body').load(SICKRAGE.srWebRoot + '/changelog');
                     $("#changelogModal").modal();
                 });
 
@@ -5568,7 +5568,7 @@ $(document).ready(function ($) {
                     $('#minLevel').prop('disabled', true);
                     $('#logFilter').prop('disabled', true);
                     document.body.style.cursor = 'wait';
-                    var url = SICKRAGE.srWebRoot + '/logs/viewlog/?minLevel=' + $('select[name=minLevel]').val() + '&logFilter=' + $('select[name=logFilter]').val() + '&logSearch=' + $('#logSearch').val();
+                    var url = SICKRAGE.srWebRoot + '/logs/view/?minLevel=' + $('select[name=minLevel]').val() + '&logFilter=' + $('select[name=logFilter]').val() + '&logSearch=' + $('#logSearch').val();
                     $.get(url, function (data) {
                         history.pushState('data', '', url);
                         $('#loglines').html($(data).find('#loglines').html());

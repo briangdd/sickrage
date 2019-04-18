@@ -3,12 +3,8 @@ from sickrage.core.helpers import argToBool
 from sickrage.core.webserver.handlers.base import BaseHandler
 
 
-@Route('/home/postprocess(/?.*)')
-class HomePostProcess(BaseHandler):
-    def __init__(self, *args, **kwargs):
-        super(HomePostProcess, self).__init__(*args, **kwargs)
-
-    def index(self):
+class HomePostProcessHandler(BaseHandler):
+    def get(self):
         return self.render(
             "/home/postprocess.mako",
             title=_('Post Processing'),
@@ -18,7 +14,8 @@ class HomePostProcess(BaseHandler):
             action='postprocess'
         )
 
-    def processEpisode(self, *args, **kwargs):
+class HomeProcessEpisodeHandler(BaseHandler):
+    def get(self, *args, **kwargs):
         pp_options = dict(
             ("proc_dir" if k.lower() == "dir" else k,
              argToBool(v)

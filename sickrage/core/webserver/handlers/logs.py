@@ -7,50 +7,45 @@ from sickrage.core.helpers import readFileBuffered
 from sickrage.core.webserver.handlers.base import BaseHandler
 
 
-@Route('/logs(/?.*)')
 class LogsHandler(BaseHandler):
-    def __init__(self, *args, **kwargs):
-        super(LogsHandler, self).__init__(*args, **kwargs)
-
-    def LogsMenu(self):
-        menu = [
+    def initialize(self):
+        self.logs_menu = [
             {'title': _('Clear All'), 'path': '/logs/clearAll/',
              'requires': self.haveErrors() or self.haveWarnings(),
              'icon': 'fas fa-trash'},
         ]
 
-        return menu
-
-    def index(self, level=None):
+    def get(self, level=None):
         level = int(level or sickrage.app.log.ERROR)
         return self.render(
             "/logs/errors.mako",
             header="Logs &amp; Errors",
             title="Logs &amp; Errors",
             topmenu="system",
-            submenu=self.LogsMenu(),
+            submenu=self.logs_menu,
             logLevel=level,
             controller='logs',
             action='errors'
         )
 
-    @staticmethod
-    def haveErrors():
+    def haveErrors(self):
         if len(ErrorViewer.errors) > 0:
             return True
 
-    @staticmethod
-    def haveWarnings():
+    def haveWarnings(self):
         if len(WarningViewer.errors) > 0:
             return True
 
-    def clearAll(self):
+
+class LogsClearAllHanlder(BaseHandler):
+    def get(self):
         WarningViewer.clear()
         ErrorViewer.clear()
+        self.redirect("/logs/view/")
 
-        return self.redirect("/logs/viewlog/")
 
-    def viewlog(self, minLevel=None, logFilter='', logSearch='', maxLines=500):
+class LogsViewHandler(BaseHandler):
+    def get(self, minLevel=None, logFilter='', logSearch='', maxLines=500):
         logNameFilters = {
             '': 'No Filter',
             'DAILYSEARCHER': _('Daily Searcher'),
@@ -111,11 +106,3 @@ class LogsHandler(BaseHandler):
             controller='logs',
             action='view'
         )
-
-    def submit_errors(self):
-        # submitter_result, issue_id = logging.submit_errors()
-        # LOGGER.warning(submitter_result, [issue_id is None])
-        # submitter_notification = notifications.error if issue_id is None else notifications.message
-        # submitter_notification(submitter_result)
-
-        return self.redirect("/logs/")

@@ -5,9 +5,6 @@ from sickrage.core.webserver.handlers.base import BaseHandler
 
 
 class LoginHandler(BaseHandler):
-    def __init__(self, *args, **kwargs):
-        super(LoginHandler, self).__init__(*args, **kwargs)
-
     def prepare(self, *args, **kwargs):
         redirect_uri = "{}://{}{}/login".format(self.request.protocol, self.request.host, sickrage.app.config.web_root)
 

@@ -30,12 +30,55 @@ from sickrage.core.traktapi import srTraktAPI
 from sickrage.core.tv.episode import TVEpisode
 from sickrage.core.webserver.handlers.base import BaseHandler
 from sickrage.indexers import IndexerApi
+from sickrage.subtitles import name_from_code
+
+
+def _get_episode(show, season=None, episode=None, absolute=None):
+    if show is None:
+        return _("Invalid show parameters")
+
+    showObj = findCertainShow(int(show))
+
+    if showObj is None:
+        return _("Invalid show paramaters")
+
+    if absolute:
+        epObj = showObj.get_episode(absolute_number=int(absolute))
+    elif season and episode:
+        epObj = showObj.get_episode(int(season), int(episode))
+    else:
+        return _("Invalid paramaters")
+
+    if epObj is None:
+        return _("Episode couldn't be retrieved")
+
+    return epObj
+
+
+def have_kodi():
+    return sickrage.app.config.use_kodi and sickrage.app.config.kodi_update_library
+
+
+def have_plex():
+    return sickrage.app.config.use_plex and sickrage.app.config.plex_update_library
+
+
+def have_emby():
+    return sickrage.app.config.use_emby
+
+
+def have_torrent():
+    if sickrage.app.config.use_torrents and sickrage.app.config.torrent_method != 'blackhole' and \
+            (sickrage.app.config.enable_https and sickrage.app.config.torrent_host[:5] == 'https' or not
+            sickrage.app.config.enable_https and sickrage.app.config.torrent_host[:5] == 'http:'):
+        return True
+    return False
 
 
 class HomeHandler(BaseHandler):
-    async def get(self):
+    def get(self):
         if not len(sickrage.app.showlist):
-            await self.redirect('/home/addShows/')
+            return self.redirect('/home/addShows/')
 
         showlists = OrderedDict({'Shows': []})
         if sickrage.app.config.anime_split_home:
@@ -51,7 +94,7 @@ class HomeHandler(BaseHandler):
 
         app_stats = app_statistics()
 
-        self.write(self.render(
+        return self.render(
             "/home/index.mako",
             title="Home",
             header="Show List",
@@ -61,7 +104,8 @@ class HomeHandler(BaseHandler):
             overall_stats=app_stats[1],
             max_download_count=app_stats[2],
             controller='home',
-            action='index'))
+            action='index'
+        )
 
 
 class IsAliveHandler(BaseHandler):
@@ -164,81 +208,37 @@ class TestBoxcar2Handler(BaseHandler):
 
 class TestPushoverHandler(BaseHandler):
     def get(self, userKey=None, apiKey=None):
-
         result = sickrage.app.notifier_providers['pushover'].test_notify(userKey, apiKey)
         if result:
             return _('Pushover notification succeeded. Check your Pushover clients to make sure it worked')
-        else:
-            return _('Error sending Pushover notification')
+        return _('Error sending Pushover notification')
 
-    @staticmethod
-    def _getEpisode(show, season=None, episode=None, absolute=None):
-        if show is None:
-            return _("Invalid show parameters")
 
-        showObj = findCertainShow(int(show))
-
-        if showObj is None:
-            return _("Invalid show paramaters")
-
-        if absolute:
-            epObj = showObj.get_episode(absolute_number=int(absolute))
-        elif season and episode:
-            epObj = showObj.get_episode(int(season), int(episode))
-        else:
-            return _("Invalid paramaters")
-
-        if epObj is None:
-            return _("Episode couldn't be retrieved")
-
-        return epObj
-
-    @staticmethod
-    def haveKODI():
-        return sickrage.app.config.use_kodi and sickrage.app.config.kodi_update_library
-
-    @staticmethod
-    def havePLEX():
-        return sickrage.app.config.use_plex and sickrage.app.config.plex_update_library
-
-    @staticmethod
-    def haveEMBY():
-        return sickrage.app.config.use_emby
-
-    @staticmethod
-    def haveTORRENT():
-        if sickrage.app.config.use_torrents and sickrage.app.config.torrent_method != 'blackhole' and \
-                (sickrage.app.config.enable_https and sickrage.app.config.torrent_host[:5] == 'https' or not
-                sickrage.app.config.enable_https and sickrage.app.config.torrent_host[:5] == 'http:'):
-            return True
-        else:
-            return False
-
-    @staticmethod
-    def twitterStep1():
+class TwitterStep1Handler(BaseHandler):
+    def get(self, *args, **kwargs):
         return sickrage.app.notifier_providers['twitter']._get_authorization()
 
-    @staticmethod
-    def twitterStep2(key):
 
+class TwitterStep2Handler(BaseHandler):
+    def get(self, *args, **kwargs):
+        key = self.get_argument('key')
         result = sickrage.app.notifier_providers['twitter']._get_credentials(key)
         sickrage.app.log.info("result: " + str(result))
         if result:
             return _('Key verification successful')
-        else:
-            return _('Unable to verify key')
+        return _('Unable to verify key')
 
-    @staticmethod
-    def testTwitter():
 
+class TestTwitterHandler(BaseHandler):
+    def get(self, *args, **kwargs):
         result = sickrage.app.notifier_providers['twitter'].test_notify()
         if result:
             return _('Tweet successful, check your twitter to make sure it worked')
-        else:
-            return _('Error sending tweet')
+        return _('Error sending tweet')
 
-    @staticmethod
-    def testTwilio(account_sid=None, auth_token=None, phone_sid=None, to_number=None):
+
+class TestTwilioHandler(BaseHandler):
+    def get(self, account_sid=None, auth_token=None, phone_sid=None, to_number=None):
         if not sickrage.app.notifier_providers['twilio'].account_regex.match(account_sid):
             return _('Please enter a valid account sid')
 
@@ -257,24 +257,27 @@ class TestPushoverHandler(BaseHandler):
         else:
             return _('Error sending sms')
 
-    @staticmethod
-    def testSlack():
+
+class TestSlackHandler(BaseHandler):
+    def get(self):
         result = sickrage.app.notifier_providers['slack'].test_notify()
         if result:
             return _('Slack message successful')
         else:
             return _('Slack message failed')
 
-    @staticmethod
-    def testDiscord():
+
+class TestDiscordHandler(BaseHandler):
+    def get(self):
         result = sickrage.app.notifier_providers['discord'].test_notify()
         if result:
             return _('Discord message successful')
         else:
             return _('Discord message failed')
 
-    @staticmethod
-    def testKODI(host=None, username=None, password=None):
+
+class TestKODIHandler(BaseHandler):
+    def get(self, host=None, username=None, password=None):
 
         host = clean_hosts(host)
         finalResult = ''
@@ -289,7 +292,9 @@ class TestPushoverHandler(BaseHandler):
 
         return finalResult
 
-    def testPMC(self, host=None, username=None, password=None):
+
+class TestPMCHandler(BaseHandler):
+    def get(self, host=None, username=None, password=None):
         if None is not password and set('*') == set(password):
             password = sickrage.app.config.plex_client_password
 
@@ -309,7 +314,9 @@ class TestPushoverHandler(BaseHandler):
 
         return finalResult
 
-    def testPMS(self, host=None, username=None, password=None, plex_server_token=None):
+
+class TestPMSHandler(BaseHandler):
+    def get(self, host=None, username=None, password=None, plex_server_token=None):
         if password is not None and set('*') == set(password):
             password = sickrage.app.config.plex_password
 
@@ -333,15 +340,17 @@ class TestPushoverHandler(BaseHandler):
 
         return finalResult
 
-    @staticmethod
-    def testLibnotify():
+
+class TestLibnotifyHandler(BaseHandler):
+    def get(self):
         if sickrage.app.notifier_providers['libnotify'].notifier.test_notify():
             return _('Tried sending desktop notification via libnotify')
         else:
             return sickrage.app.notifier_providers['libnotify'].diagnose()
 
-    @staticmethod
-    def testEMBY(host=None, emby_apikey=None):
+
+class TestEMBYHandler(BaseHandler):
+    def get(self, host=None, emby_apikey=None):
         host = clean_host(host)
         result = sickrage.app.notifier_providers['emby'].test_notify(unquote_plus(host), emby_apikey)
         if result:
@@ -349,8 +358,9 @@ class TestPushoverHandler(BaseHandler):
         else:
             return _('Test notice failed to ') + unquote_plus(host)
 
-    @staticmethod
-    def testNMJ(host=None, database=None, mount=None):
+
+class TestNMJHandler(BaseHandler):
+    def get(self, host=None, database=None, mount=None):
         host = clean_host(host)
         result = sickrage.app.notifier_providers['nmj'].test_notify(unquote_plus(host), database, mount)
         if result:
@@ -358,8 +368,9 @@ class TestPushoverHandler(BaseHandler):
         else:
             return _('Test failed to start the scan update')
 
-    @staticmethod
-    def settingsNMJ(host=None):
+
+class SettingsNMJHandler(BaseHandler):
+    def get(self, host=None):
         host = clean_host(host)
         result = sickrage.app.notifier_providers['nmj'].notify_settings(unquote_plus(host))
         if result:
@@ -373,8 +384,9 @@ class TestPushoverHandler(BaseHandler):
                         'detailed info)')
             return '{"message": {}, "database": "", "mount": ""}'.format(message)
 
-    @staticmethod
-    def testNMJv2(host=None):
+
+class TestNMJv2Handler(BaseHandler):
+    def get(self, host=None):
         host = clean_host(host)
         result = sickrage.app.notifier_providers['nmjv2'].test_notify(unquote_plus(host))
         if result:
@@ -382,8 +394,9 @@ class TestPushoverHandler(BaseHandler):
         else:
             return _('Test notice failed to ') + unquote_plus(host)
 
-    @staticmethod
-    def settingsNMJv2(host=None, dbloc=None, instance=None):
+
+class SettingsNMJv2Handler(BaseHandler):
+    def get(self, host=None, dbloc=None, instance=None):
         host = clean_host(host)
         result = sickrage.app.notifier_providers['nmjv2'].notify_settings(unquote_plus(host), dbloc,
                                                                           instance)
@@ -394,26 +407,30 @@ class TestPushoverHandler(BaseHandler):
             return '{"message": "Unable to find NMJ Database at location: %(dbloc)s. Is the right location selected and PCH running?", "database": ""}' % {
                 "dbloc": dbloc}
 
-    @staticmethod
-    def getTraktToken(trakt_pin=None):
+
+class GetTraktTokenHandler(BaseHandler):
+    def get(self, trakt_pin=None):
         if srTraktAPI().authenticate(trakt_pin):
             return _('Trakt Authorized')
         return _('Trakt Not Authorized!')
 
-    @staticmethod
-    def testTrakt(username=None, blacklist_name=None):
+
+class TestTraktHandler(BaseHandler):
+    def get(self, username=None, blacklist_name=None):
         return sickrage.app.notifier_providers['trakt'].test_notify(username, blacklist_name)
 
-    @staticmethod
-    def loadShowNotifyLists():
+
+class LoadShowNotifyListsHandler(BaseHandler):
+    def get(self):
         data = {'_size': 0}
         for s in sorted(sickrage.app.showlist, key=lambda k: k.name):
             data[s.indexerid] = {'id': s.indexerid, 'name': s.name, 'list': s.notify_list}
             data['_size'] += 1
         return json_encode(data)
 
-    @staticmethod
-    def saveShowNotifyList(show=None, emails=None):
+
+class SaveShowNotifyListHandler(BaseHandler):
+    def get(self, show=None, emails=None):
         try:
             show = findCertainShow(int(show))
             show.notify_list = emails
@@ -421,16 +438,18 @@ class TestPushoverHandler(BaseHandler):
         except Exception:
             return 'ERROR'
 
-    @staticmethod
-    def testEmail(host=None, port=None, smtp_from=None, use_tls=None, user=None, pwd=None, to=None):
+
+class TestEmailHandler(BaseHandler):
+    def get(self, host=None, port=None, smtp_from=None, use_tls=None, user=None, pwd=None, to=None):
         host = clean_host(host)
         if sickrage.app.notifier_providers['email'].test_notify(host, port, smtp_from, use_tls, user, pwd, to):
             return _('Test email sent successfully! Check inbox.')
         else:
             return _('ERROR: %s') % sickrage.app.notifier_providers['email'].last_err
 
-    @staticmethod
-    def testNMA(nma_api=None, nma_priority=0):
+
+class TestNMAHandler(BaseHandler):
+    def get(self, nma_api=None, nma_priority=0):
 
         result = sickrage.app.notifier_providers['nma'].test_notify(nma_api, nma_priority)
         if result:
@@ -438,31 +457,36 @@ class TestPushoverHandler(BaseHandler):
         else:
             return _('Test NMA notice failed')
 
-    @staticmethod
-    def testPushalot(authorizationToken=None):
+
+class TestPushalotHandler(BaseHandler):
+    def get(self, authorizationToken=None):
         result = sickrage.app.notifier_providers['pushalot'].test_notify(authorizationToken)
         if result:
             return _('Pushalot notification succeeded. Check your Pushalot clients to make sure it worked')
         else:
             return _('Error sending Pushalot notification')
 
-    @staticmethod
-    def testPushbullet(api=None):
+
+class TestPushbulletHandler(BaseHandler):
+    def get(self, api=None):
         result = sickrage.app.notifier_providers['pushbullet'].test_notify(api)
         if result:
             return _('Pushbullet notification succeeded. Check your device to make sure it worked')
         else:
             return _('Error sending Pushbullet notification')
 
-    @staticmethod
-    def getPushbulletDevices(api=None):
+
+class GetPushbulletDevicesHandler(BaseHandler):
+    def get(api=None):
         result = sickrage.app.notifier_providers['pushbullet'].get_devices(api)
         if result:
             return result
         else:
             return _('Error getting Pushbullet devices')
 
-    def status(self):
+
+class StatusHandler(BaseHandler):
+    def get(self):
         tvdirFree = getDiskSpaceUsage(sickrage.app.config.tv_download_dir)
         rootDir = {}
         if sickrage.app.config.root_dirs:
@@ -486,14 +510,18 @@ class TestPushoverHandler(BaseHandler):
             action='status'
         )
 
-    def shutdown(self, pid=None):
+
+class ShutdownHandler(BaseHandler):
+    def get(self, pid=None):
         if str(pid) != str(sickrage.app.pid):
             return self.redirect("/{}/".format(sickrage.app.config.default_page))
 
         self._genericMessage(_("Shutting down"), _("SiCKRAGE is shutting down"))
         sickrage.app.shutdown()
 
-    def restart(self, pid=None, force=False):
+
+class RestartHandler(BaseHandler):
+    def get(self, pid=None, force=False):
         if str(pid) != str(sickrage.app.pid) and not force:
             return self.redirect("/{}/".format(sickrage.app.config.default_page))
 
@@ -514,7 +542,9 @@ class TestPushoverHandler(BaseHandler):
             action="restart",
         )  # if not force else 'SiCKRAGE is now restarting, please wait a minute then manually go back to the main page'
 
-    def updateCheck(self, pid=None):
+
+class UpdateCheckHandler(BaseHandler):
+    def get(self, pid=None):
         if str(pid) != str(sickrage.app.pid):
             return self.redirect("/{}/".format(sickrage.app.config.default_page))
 
@@ -526,7 +556,9 @@ class TestPushoverHandler(BaseHandler):
 
         return self.redirect(self.previous_url())
 
-    def update(self, pid=None):
+
+class UpdateHandler(BaseHandler):
+    def get(self, pid=None):
         if str(pid) != str(sickrage.app.pid):
             return self.redirect("/{}/".format(sickrage.app.config.default_page))
 
@@ -536,13 +568,17 @@ class TestPushoverHandler(BaseHandler):
 
         return self.redirect(self.previous_url())
 
-    def verifyPath(self, path):
+
+class VerifyPathHandler(BaseHandler):
+    def get(self, path):
         if os.path.isfile(path):
             return _('Successfully found {path}'.format(path=path))
         else:
             return _('Failed to find {path}'.format(path=path))
 
-    def installRequirements(self):
+
+class InstallRequirementsHandler(BaseHandler):
+    def get(self):
         sickrage.app.alerts.message(_('Installing SiCKRAGE requirements'))
         if not sickrage.app.version_updater.updater.install_requirements(
                 sickrage.app.version_updater.updater.current_branch):
@@ -552,7 +588,9 @@ class TestPushoverHandler(BaseHandler):
 
         return self.redirect(self.previous_url())
 
-    def branchCheckout(self, branch):
+
+class BranchCheckoutHandler(BaseHandler):
+    def get(self, branch):
         if branch and sickrage.app.version_updater.updater.current_branch != branch:
             sickrage.app.alerts.message(_('Checking out branch: '), branch)
             if sickrage.app.version_updater.updater.checkout_branch(branch):
@@ -563,8 +601,12 @@ class TestPushoverHandler(BaseHandler):
 
         return self.redirect(self.previous_url())
 
-    def displayShow(self, show=None):
+
+class DisplayShowHandler(BaseHandler):
+    def get(self, *args, **kwargs):
         submenu = []
+
+        show = self.get_argument('show')
 
         if show is None:
             return self._genericMessage(_("Error"), _("Invalid show ID"))
@@ -649,14 +691,14 @@ class TestPushoverHandler(BaseHandler):
                 submenu.append({
                     'title': _('Update show in KODI'),
                     'path': '/home/updateKODI?show=%d' % showObj.indexerid,
-                    'requires': self.haveKODI(),
+                    'requires': have_kodi(),
                     'icon': 'fas fa-tv'
                 })
 
                 submenu.append({
                     'title': _('Update show in Emby'),
                     'path': '/home/updateEMBY?show=%d' % showObj.indexerid,
-                    'requires': self.haveEMBY(),
+                    'requires': have_emby(),
                     'icon': 'fas fa-tv'
                 })
 
@@ -770,11 +812,13 @@ class TestPushoverHandler(BaseHandler):
             action="display_show"
         )
 
-    def editShow(self, show=None, location=None, anyQualities=None, bestQualities=None, exceptions_list=None,
-                 flatten_folders=None, paused=None, directCall=False, air_by_date=None, sports=None, dvdorder=None,
-                 indexerLang=None, subtitles=None, subtitles_sr_metadata=None, skip_downloaded=None,
-                 rls_ignore_words=None, rls_require_words=None, anime=None, blacklist=None, whitelist=None,
-                 scene=None, defaultEpStatus=None, quality_preset=None, search_delay=None):
+
+class EditShowHandler(BaseHandler):
+    def get(self, show=None, location=None, anyQualities=None, bestQualities=None, exceptions_list=None,
+            flatten_folders=None, paused=None, directCall=False, air_by_date=None, sports=None, dvdorder=None,
+            indexerLang=None, subtitles=None, subtitles_sr_metadata=None, skip_downloaded=None,
+            rls_ignore_words=None, rls_require_words=None, anime=None, blacklist=None, whitelist=None,
+            scene=None, defaultEpStatus=None, quality_preset=None, search_delay=None):
 
         if exceptions_list is None:
             exceptions_list = []
@@ -1003,7 +1047,9 @@ class TestPushoverHandler(BaseHandler):
 
         return self.redirect("/home/displayShow?show=" + show)
 
-    def togglePause(self, show=None):
+
+class TogglePauseHandler(BaseHandler):
+    def get(self, show=None):
         if show is None:
             return self._genericMessage(_("Error"), _("Invalid show ID"))
 
@@ -1021,7 +1067,9 @@ class TestPushoverHandler(BaseHandler):
 
         return self.redirect("/home/displayShow?show=%i" % showObj.indexerid)
 
-    def deleteShow(self, show=None, full=0):
+
+class DeleteShowHandler(BaseHandler):
+    def get(self, show=None, full=0):
         if show is None:
             return self._genericMessage(_("Error"), _("Invalid show ID"))
 
@@ -1048,7 +1096,9 @@ class TestPushoverHandler(BaseHandler):
         # Don't redirect to the default page, so the user can confirm that the show was deleted
         return self.redirect('/home/')
 
-    def refreshShow(self, show=None):
+
+class RefreshShowHandler(BaseHandler):
+    def get(self, show=None):
         if show is None:
             return self._genericMessage(_("Error"), _("Invalid show ID"))
 
@@ -1066,7 +1116,9 @@ class TestPushoverHandler(BaseHandler):
 
         return self.redirect("/home/displayShow?show=" + str(showObj.indexerid))
 
-    def updateShow(self, show=None, force=0):
+
+class UpdateShowHandler(BaseHandler):
+    def get(self, show=None, force=0):
         if show is None:
             return self._genericMessage(_("Error"), _("Invalid show ID"))
 
@@ -1086,7 +1138,8 @@ class TestPushoverHandler(BaseHandler):
 
         return self.redirect("/home/displayShow?show=" + str(showObj.indexerid))
 
-    def subtitleShow(self, show=None):
+class SubtitleShowHandler(BaseHandler):
+    def get(self, show=None):
 
         if show is None:
             return self._genericMessage(_("Error"), _("Invalid show ID"))
@@ -1103,7 +1156,8 @@ class TestPushoverHandler(BaseHandler):
 
         return self.redirect("/home/displayShow?show=" + str(showObj.indexerid))
 
-    def updateKODI(self, show=None):
+class UpdateKODIHandler(BaseHandler):
+    def get(self, show=None):
         showName = None
         showObj = None
 
@@ -1127,7 +1181,8 @@ class TestPushoverHandler(BaseHandler):
         else:
             return self.redirect('/home/')
 
-    def updatePLEX(self):
+class UpdatePLEXHandler(BaseHandler):
+    def get(self):
         if None is sickrage.app.notifier_providers['plex'].update_library():
             sickrage.app.alerts.message(
                 _("Library update command sent to Plex Media Server host: ") +
@@ -1138,7 +1193,8 @@ class TestPushoverHandler(BaseHandler):
                 sickrage.app.config.plex_server_host)
         return self.redirect('/home/')
 
-    def updateEMBY(self, show=None):
+class UpdateEMBYHandler(BaseHandler):
+    def get(self, show=None):
         showObj = None
 
         if show:
@@ -1156,14 +1212,16 @@ class TestPushoverHandler(BaseHandler):
         else:
             return self.redirect('/home/')
 
-    def syncTrakt(self):
+class SyncTraktHandler(BaseHandler):
+    def get(self):
         if sickrage.app.scheduler.get_job('TRAKTSEARCHER').func():
             sickrage.app.log.info("Syncing Trakt with SiCKRAGE")
             sickrage.app.alerts.message(_('Syncing Trakt with SiCKRAGE'))
 
         return self.redirect("/home/")
 
-    def deleteEpisode(self, show=None, eps=None, direct=False):
+class DeleteEpisodeHandler(BaseHandler):
+    def get(self, show=None, eps=None, direct=False):
         if not all([show, eps]):
             errMsg = _("You must specify a show and at least one episode")
             if direct:
@@ -1211,8 +1269,8 @@ class TestPushoverHandler(BaseHandler):
         else:
             return self.redirect("/home/displayShow?show=" + show)
 
-    def setStatus(self, show=None, eps=None, status=None, direct=False):
-
+class SetStatusHandler(BaseHandler):
+    def get(self, show=None, eps=None, status=None, direct=False):
         if not all([show, eps, status]):
             errMsg = _("You must specify a show and at least one episode")
             if direct:
@@ -1358,7 +1416,8 @@ class TestPushoverHandler(BaseHandler):
         else:
             return self.redirect("/home/displayShow?show=" + show)
 
-    def testRename(self, show=None):
+class TestRenameHandler(BaseHandler):
+    def get(self, show=None):
 
         if show is None:
             return self._genericMessage(_("Error"), _("You must specify a show"))
@@ -1409,7 +1468,8 @@ class TestPushoverHandler(BaseHandler):
             action="test_renaming"
         )
 
-    def doRename(self, show=None, eps=None):
+class DoRenameHandler(BaseHandler):
+    def get(self, show=None, eps=None):
         if show is None or eps is None:
             errMsg = _("You must specify a show and at least one episode")
             return self._genericMessage(_("Error"), errMsg)
@@ -1449,10 +1509,10 @@ class TestPushoverHandler(BaseHandler):
 
         return self.redirect("/home/displayShow?show=" + show)
 
-    def searchEpisode(self, show=None, season=None, episode=None, downCurQuality=0):
-
+class SearchEpisodeHandler(BaseHandler):
+    def get(self, show=None, season=None, episode=None, downCurQuality=0):
         # retrieve the episode object and fail if we can't get one
-        ep_obj = self._getEpisode(show, season, episode)
+        ep_obj = _get_episode(show, season, episode)
         if isinstance(ep_obj, TVEpisode):
             # make a queue item for it and put it on the queue
             ep_queue_item = ManualSearchQueueItem(ep_obj.show, ep_obj, bool(int(downCurQuality)))
@@ -1462,10 +1522,8 @@ class TestPushoverHandler(BaseHandler):
                 return json_encode({'result': 'success'})
         return json_encode({'result': 'failure'})
 
-    ### Returns the current ep_queue_item status for the current viewed show.
-    # Possible status: Downloaded, Snatched, etc...
-    # Returns {'show': 279530, 'episodes' : ['episode' : 6, 'season' : 1, 'searchstatus' : 'queued', 'status' : 'running', 'quality': '4013']
-    def getManualSearchStatus(self, show=None):
+class GetManualSearchStatusHandler(BaseHandler):
+    def get(self, show=None):
         def getEpisodes(searchThread, searchstatus):
             results = []
             showObj = findCertainShow(int(searchThread.show.indexerid))
@@ -1533,8 +1591,8 @@ class TestPushoverHandler(BaseHandler):
 
         return json_encode({'episodes': episodes})
 
-    @staticmethod
-    def getQualityClass(ep_obj):
+class GetQualityClassHandler(BaseHandler):
+    def get(self, ep_obj):
         # return the correct json value
 
         # Find the quality class for the episode
@@ -1546,9 +1604,11 @@ class TestPushoverHandler(BaseHandler):
 
         return quality_class
 
-    def searchEpisodeSubtitles(self, show=None, season=None, episode=None):
+
+class SearchEpisodeSubtitlesHandler(BaseHandler):
+    def get(self, show=None, season=None, episode=None):
         # retrieve the episode object and fail if we can't get one
-        ep_obj = self._getEpisode(show, season, episode)
+        ep_obj = _get_episode(show, season, episode)
         if isinstance(ep_obj, TVEpisode):
             try:
                 newSubtitles = ep_obj.download_subtitles()
@@ -1556,7 +1616,7 @@ class TestPushoverHandler(BaseHandler):
                 return json_encode({'result': 'failure'})
 
             if newSubtitles:
-                newLangs = [sickrage.subtitles.name_from_code(newSub) for newSub in newSubtitles]
+                newLangs = [name_from_code(newSub) for newSub in newSubtitles]
                 status = _('New subtitles downloaded: %s') % ', '.join([newLang for newLang in newLangs])
             else:
                 status = _('No subtitles downloaded')
@@ -1566,7 +1626,8 @@ class TestPushoverHandler(BaseHandler):
 
         return json_encode({'result': 'failure'})
 
-    def setSceneNumbering(self, show, indexer, forSeason=None, forEpisode=None, forAbsolute=None, sceneSeason=None,
+class SetSceneNumberingHandler(BaseHandler):
+    def get(self, show, indexer, forSeason=None, forEpisode=None, forAbsolute=None, sceneSeason=None,
                           sceneEpisode=None, sceneAbsolute=None):
 
         # sanitize:
@@ -1599,9 +1660,9 @@ class TestPushoverHandler(BaseHandler):
 
         # retrieve the episode object and fail if we can't get one
         if showObj.is_anime:
-            ep_obj = self._getEpisode(show, absolute=forAbsolute)
+            ep_obj = _get_episode(show, absolute=forAbsolute)
         else:
-            ep_obj = self._getEpisode(show, forSeason, forEpisode)
+            ep_obj = _get_episode(show, forSeason, forEpisode)
 
         if isinstance(ep_obj, str):
             result['success'] = False
@@ -1648,9 +1709,11 @@ class TestPushoverHandler(BaseHandler):
 
         return json_encode(result)
 
-    def retryEpisode(self, show, season, episode, downCurQuality):
+
+class RetryEpisodeHandler(BaseHandler):
+    def get(self, show, season, episode, downCurQuality):
         # retrieve the episode object and fail if we can't get one
-        ep_obj = self._getEpisode(show, season, episode)
+        ep_obj = _get_episode(show, season, episode)
         if isinstance(ep_obj, TVEpisode):
             # make a queue item for it and put it on the queue
             ep_queue_item = FailedQueueItem(ep_obj.show, [ep_obj], bool(int(downCurQuality)))

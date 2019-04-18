@@ -1,8 +1,9 @@
 import os
 import re
-from urllib.parse import unquote_plus
+from urllib.parse import unquote_plus, urlencode
 
 from tornado.escape import json_encode
+from tornado.httpclient import AsyncHTTPClient
 
 import sickrage
 from sickrage.core.classes import AllShowsUI
@@ -16,12 +17,24 @@ from sickrage.core.webserver.handlers.base import BaseHandler
 from sickrage.indexers import IndexerApi
 
 
-@Route('/home/addShows(/?.*)')
-class HomeAddShows(BaseHandler):
-    def __init__(self, *args, **kwargs):
-        super(HomeAddShows, self).__init__(*args, **kwargs)
+def split_extra_show(extra_show):
+    if not extra_show:
+        return None, None, None, None
+    split_vals = extra_show.split('|')
+    if len(split_vals) < 4:
+        indexer = split_vals[0]
+        show_dir = split_vals[1]
+        return indexer, show_dir, None, None
+    indexer = split_vals[0]
+    show_dir = split_vals[1]
+    indexer_id = split_vals[2]
+    show_name = '|'.join(split_vals[3:])
 
-    def index(self):
+    return indexer, show_dir, indexer_id, show_name
+
+
+class HomeAddShowsHandler(BaseHandler):
+    def get(self):
         return self.render(
             "/home/add_shows.mako",
             title=_('Add Shows'),
@@ -31,16 +44,9 @@ class HomeAddShows(BaseHandler):
             action='add_shows'
         )
 
-    @staticmethod
-    def getIndexerLanguages():
-        return json_encode({'results': IndexerApi().indexer().language.keys()})
 
-    @staticmethod
-    def sanitizeFileName(name):
-        return sanitizeFileName(name)
-
-    @staticmethod
-    def searchIndexersForShowName(search_term, lang=None, indexer=None):
+class SearchIndexersForShowNameHandler(BaseHandler):
+    def get(search_term, lang=None, indexer=None):
         if not lang or lang == 'null':
             lang = sickrage.app.config.indexer_default_language
 
@@ -71,7 +77,9 @@ class HomeAddShows(BaseHandler):
         lang_id = IndexerApi().indexer().languages[lang] or 7
         return json_encode({'results': final_results, 'langid': lang_id})
 
-    def massAddTable(self, rootDir=None):
+
+class MassAddTableHandler(BaseHandler):
+    def get(self, rootDir=None):
         if not rootDir:
             return _('No folders selected.')
         elif not isinstance(rootDir, list):
@@ -155,13 +163,15 @@ class HomeAddShows(BaseHandler):
             action="mass_add_table"
         )
 
-    def newShow(self, show_to_add=None, other_shows=None, search_string=None):
+
+class NewShowHandler(BaseHandler):
+    def get(self, show_to_add=None, other_shows=None, search_string=None):
         """
         Display the new show page which collects a tvdb id, folder, and extra options and
         posts them to addNewShow
         """
 
-        indexer, show_dir, indexer_id, show_name = self.split_extra_show(show_to_add)
+        indexer, show_dir, indexer_id, show_name = split_extra_show(show_to_add)
 
         use_provided_info = False
         if indexer_id and indexer and show_name:
@@ -207,7 +217,9 @@ class HomeAddShows(BaseHandler):
             action="new_show"
         )
 
-    def traktShows(self, list='trending', limit=10):
+
+class TraktShowsHandler(BaseHandler):
+    def get(self, list='trending', limit=10):
         """
         Display the new show page which collects a tvdb id, folder, and extra options and
         posts them to addNewShow
@@ -230,7 +242,9 @@ class HomeAddShows(BaseHandler):
                            controller='home',
                            action="trakt_shows")
 
-    def popularShows(self):
+
+class PopularShowsHandler(BaseHandler):
+    def get(self):
         """
         Fetches data from IMDB to show a list of popular shows.
         """
@@ -250,15 +264,16 @@ class HomeAddShows(BaseHandler):
                            controller='home',
                            action="popular_shows")
 
-    def addShowToBlacklist(self, indexer_id):
-        # URL parameters
+
+class AddShowToBlacklistHandler(BaseHandler):
+    def get(self, indexer_id):
         data = {'shows': [{'ids': {'tvdb': indexer_id}}]}
-
         srTraktAPI()["users/me/lists/{list}".format(list=sickrage.app.config.trakt_blacklist_name)].add(data)
+        self.redirect('/home/addShows/trendingShows/')
 
-        return self.redirect('/home/addShows/trendingShows/')
 
-    def existingShows(self):
+class ExistingShowsHandler(BaseHandler):
+    def get(self):
         """
         Prints out the page to add existing shows from a root dir
         """
@@ -271,7 +286,9 @@ class HomeAddShows(BaseHandler):
                            controller='home',
                            action="add_existing_shows")
 
-    def addShowByID(self, indexer_id, showName):
+
+class AddShowByIDHandler(BaseHandler):
+    async def get(self, indexer_id, showName):
         if re.search(r'tt\d+', indexer_id):
             lINDEXER_API_PARMS = IndexerApi(1).api_params.copy()
             t = IndexerApi(1).indexer(**lINDEXER_API_PARMS)
@@ -291,17 +308,21 @@ class HomeAddShows(BaseHandler):
 
         show_dir = os.path.join(location, sanitizeFileName(showName))
 
-        return self.newShow('1|{show_dir}|{indexer_id}|{show_name}'.format(**{
+        post_data = {'show_to_add': '1|{show_dir}|{indexer_id}|{show_name}'.format(**{
             'show_dir': '',
             'indexer_id': indexer_id,
             'show_name': showName
-        }))
+        })}
 
-    def addNewShow(self, whichSeries=None, indexerLang=None, rootDir=None, defaultStatus=None,
-                   quality_preset=None, anyQualities=None, bestQualities=None, flatten_folders=None, subtitles=None,
-                   subtitles_sr_metadata=None, fullShowPath=None, other_shows=None, skipShow=None, providedIndexer=None,
-                   anime=None, scene=None, blacklist=None, whitelist=None, defaultStatusAfter=None,
-                   skip_downloaded=None, providedName=None, add_show_year=None):
+        return await AsyncHTTPClient().fetch("/home/addShows/newShow", body=urlencode(post_data))
+
+
+class AddNewShowHandler(BaseHandler):
+    async def get(self, whichSeries=None, indexerLang=None, rootDir=None, defaultStatus=None,
+                  quality_preset=None, anyQualities=None, bestQualities=None, flatten_folders=None, subtitles=None,
+                  subtitles_sr_metadata=None, fullShowPath=None, other_shows=None, skipShow=None, providedIndexer=None,
+                  anime=None, scene=None, blacklist=None, whitelist=None, defaultStatusAfter=None,
+                  skip_downloaded=None, providedName=None, add_show_year=None):
         """
         Receive tvdb id, dir, and other options and create a show from them. If extra show dirs are
         provided then it forwards back to newShow, if not it goes to /home.
@@ -325,11 +346,12 @@ class HomeAddShows(BaseHandler):
             rest_of_show_dirs = other_shows[1:]
 
             # go to add the next show
-            return self.newShow(next_show_dir, rest_of_show_dirs)
+            post_data = {'show_to_add': next_show_dir, 'other_shows': rest_of_show_dirs}
+            return AsyncHTTPClient().fetch("/home/addShows/newShow", body=urlencode(post_data))
 
         # if we're skipping then behave accordingly
         if skipShow:
-            return finishAddShow()
+            return await finishAddShow()
 
         # sanity check on our inputs
         if not whichSeries or not any([rootDir, fullShowPath, providedName]):
@@ -435,23 +457,9 @@ class HomeAddShows(BaseHandler):
 
         return finishAddShow()
 
-    @staticmethod
-    def split_extra_show(extra_show):
-        if not extra_show:
-            return None, None, None, None
-        split_vals = extra_show.split('|')
-        if len(split_vals) < 4:
-            indexer = split_vals[0]
-            show_dir = split_vals[1]
-            return indexer, show_dir, None, None
-        indexer = split_vals[0]
-        show_dir = split_vals[1]
-        indexer_id = split_vals[2]
-        show_name = '|'.join(split_vals[3:])
 
-        return indexer, show_dir, indexer_id, show_name
-
-    def addExistingShows(self, shows_to_add, promptForSettings, **kwargs):
+class AddExistingShowsHandler(BaseHandler):
+    async def get(self, shows_to_add, promptForSettings, **kwargs):
         """
         Receives a dir list and add them. Adds the ones with given TVDB IDs first, then forwards
         along to the newShow page.
@@ -473,7 +481,7 @@ class HomeAddShows(BaseHandler):
             split_vals = cur_dir.split('|')
             if split_vals:
                 if len(split_vals) > 2:
-                    indexer, show_dir, indexer_id, show_name = self.split_extra_show(cur_dir)
+                    indexer, show_dir, indexer_id, show_name = split_extra_show(cur_dir)
                     if all([show_dir, indexer_id, show_name]):
                         indexer_id_given.append((int(indexer), show_dir, int(indexer_id), show_name))
                 else:
@@ -483,7 +491,8 @@ class HomeAddShows(BaseHandler):
 
         # if they want me to prompt for settings then I will just carry on to the newShow page
         if promptForSettings and shows_to_add:
-            return self.newShow(shows_to_add[0], shows_to_add[1:])
+            post_data = {'show_to_add': shows_to_add[0], 'other_shows': shows_to_add[1:]}
+            return await AsyncHTTPClient().fetch("/home/addShows/newShow", body=urlencode(post_data))
 
         # if they don't want me to prompt for settings then I can just add all the nfo shows now
         num_added = 0
@@ -515,4 +524,5 @@ class HomeAddShows(BaseHandler):
             return self.redirect('/home/')
 
         # for the remaining shows we need to prompt for each one, so forward this on to the newShow page
-        return self.newShow(dirs_only[0], dirs_only[1:])
+        post_data = {'show_to_add': dirs_only[0], 'other_shows': dirs_only[1:]}
+        return await AsyncHTTPClient().fetch("/home/addShows/newShow", body=urlencode(post_data))

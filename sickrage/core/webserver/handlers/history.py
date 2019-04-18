@@ -2,14 +2,9 @@ import sickrage
 from sickrage.core.tv.show.history import History
 from sickrage.core.webserver.handlers.base import BaseHandler
 
-@Route('/history(/?.*)')
+
 class HistoryHandler(BaseHandler):
-    def __init__(self, *args, **kwargs):
-        super(HistoryHandler, self).__init__(*args, **kwargs)
-        self.historyTool = History()
-
-    def index(self, limit=None):
-
+    def get(self, limit=None):
         if limit is None:
             if sickrage.app.config.history_limit:
                 limit = int(sickrage.app.config.history_limit)
@@ -23,7 +18,7 @@ class HistoryHandler(BaseHandler):
         sickrage.app.config.save()
 
         compact = []
-        data = self.historyTool.get(limit)
+        data = History().get(limit)
 
         for row in data:
             action = {
@@ -62,9 +57,9 @@ class HistoryHandler(BaseHandler):
                 history['actions'].sort(key=lambda d: d['time'], reverse=True)
 
         submenu = [
-            {'title': _('Clear History'), 'path': '/history/clearHistory', 'icon': 'fas fa-trash',
+            {'title': _('Clear History'), 'path': '/history/clear', 'icon': 'fas fa-trash',
              'class': 'clearhistory', 'confirm': True},
-            {'title': _('Trim History'), 'path': '/history/trimHistory', 'icon': 'fas fa-cut',
+            {'title': _('Trim History'), 'path': '/history/trim', 'icon': 'fas fa-cut',
              'class': 'trimhistory', 'confirm': True},
         ]
 
@@ -81,16 +76,16 @@ class HistoryHandler(BaseHandler):
             action='history'
         )
 
-    def clearHistory(self):
-        self.historyTool.clear()
 
+class HistoryClearHandler(BaseHandler):
+    def get(self):
+        History().clear()
         sickrage.app.alerts.message(_('History cleared'))
-
         return self.redirect("/history/")
 
-    def trimHistory(self):
-        self.historyTool.trim()
 
+class HistoryTrimHandler(BaseHandler):
+    def get(self):
+        History().trim()
         sickrage.app.alerts.message(_('Removed history entries older than 30 days'))
-
         return self.redirect("/history/")
