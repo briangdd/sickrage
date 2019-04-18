@@ -141,9 +141,6 @@ class WebServer(object):
             # logout
             (r'%s/logout(/?)' % sickrage.app.config.web_root, LogoutHandler),
 
-            # calendar
-            (r'%s/calendar' % sickrage.app.config.web_root, CalendarHandler),
-
             # favicon
             (r'%s/(favicon\.ico)' % sickrage.app.config.web_root, StaticNoCacheFileHandler,
              {"path": os.path.join(sickrage.app.config.gui_static_dir, 'images/favicon.ico')}),
@@ -175,6 +172,7 @@ class WebServer(object):
 
         # Home Handlers
         self.app.add_handlers('.*$', [
+            (r'%s/calendar' % sickrage.app.config.web_root, CalendarHandler),
             (r'%s/home' % sickrage.app.config.web_root, HomeHandler),
             (r'%s/home/is_alive' % sickrage.app.config.web_root, IsAliveHandler),
             (r'%s/home/testSABnzbd' % sickrage.app.config.web_root, TestSABnzbdHandler),

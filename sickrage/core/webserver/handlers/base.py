@@ -1,6 +1,7 @@
 import os
 import time
 import traceback
+from abc import ABC
 from urllib.parse import urlparse, urljoin
 
 from keycloak.exceptions import KeycloakClientError
@@ -15,7 +16,7 @@ from sickrage.core import helpers
 from sickrage.core.classes import ErrorViewer, WarningViewer
 
 
-class BaseHandler(RequestHandler):
+class BaseHandler(RequestHandler, ABC):
     def __init__(self, application, request, **kwargs):
         super(BaseHandler, self).__init__(application, request, **kwargs)
         self.startTime = time.time()

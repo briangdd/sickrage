@@ -1,4 +1,5 @@
 import datetime
+from abc import ABC
 
 import dateutil
 from tornado.web import authenticated
@@ -9,8 +10,8 @@ from sickrage.core.helpers import try_int
 from sickrage.core.webserver.handlers.base import BaseHandler
 
 
-class CalendarHandler(BaseHandler):
-    def prepare(self, *args, **kwargs):
+class CalendarHandler(BaseHandler, ABC):
+    def get(self, *args, **kwargs):
         if sickrage.app.config.calendar_unprotected:
             self.write(self.calendar())
         else:
