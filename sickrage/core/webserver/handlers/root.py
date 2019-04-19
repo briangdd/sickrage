@@ -1,3 +1,22 @@
+#  Author: echel0n <echel0n@sickrage.ca>
+#  URL: https://sickrage.ca/
+#  Git: https://git.sickrage.ca/SiCKRAGE/sickrage.git
+#
+#  This file is part of SiCKRAGE.
+#
+#  SiCKRAGE is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+#
+#  SiCKRAGE is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with SiCKRAGE.  If not, see <http://www.gnu.org/licenses/>.
+
 import datetime
 import os
 from functools import cmp_to_key
@@ -98,13 +117,13 @@ class SetHistoryLayoutHandler(BaseHandler):
 
         sickrage.app.config.history_layout = layout
 
-        self.redirect("/history/")
+        return self.redirect("/history/")
 
 
 class ToggleDisplayShowSpecialsHandler(BaseHandler):
     def get(self, show):
         sickrage.app.config.display_show_specials = not sickrage.app.config.display_show_specials
-        self.redirect("/home/displayShow?show=" + show)
+        return self.redirect("/home/displayShow?show=" + show)
 
 
 class SetScheduleLayoutHandler(BaseHandler):
@@ -117,7 +136,7 @@ class SetScheduleLayoutHandler(BaseHandler):
 
         sickrage.app.config.coming_eps_layout = layout
 
-        self.redirect("/schedule/")
+        return self.redirect("/schedule/")
 
 
 class ToggleScheduleDisplayPausedHandler(BaseHandler):
@@ -180,11 +199,13 @@ class UnlinkHandler(BaseHandler):
 
         API().token = sickrage.app.oidc_client.logout(API().token['refresh_token'])
 
-        self.redirect('/logout/')
+        return self.redirect('/logout/')
 
 
 class QuicksearchDotJsonHandler(BaseHandler):
-    def get(self, term):
+    def get(self, *args, **kwargs):
+        term = self.get_argument('term')
+
         shows = sickrage.app.quicksearch_cache.get_shows(term)
         episodes = sickrage.app.quicksearch_cache.get_episodes(term)
 
@@ -197,4 +218,4 @@ class QuicksearchDotJsonHandler(BaseHandler):
                 'seasons': 0,
             }]
 
-        return json_encode(str(shows + episodes))
+        return self.write(json_encode(str(shows + episodes)))

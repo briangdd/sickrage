@@ -1,3 +1,22 @@
+#  Author: echel0n <echel0n@sickrage.ca>
+#  URL: https://sickrage.ca/
+#  Git: https://git.sickrage.ca/SiCKRAGE/sickrage.git
+#
+#  This file is part of SiCKRAGE.
+#
+#  SiCKRAGE is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+#
+#  SiCKRAGE is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with SiCKRAGE.  If not, see <http://www.gnu.org/licenses/>.
+
 import os
 
 from sqlalchemy import or_
@@ -27,7 +46,8 @@ class Manage(WebHandler):
 
         result = {}
         for dbData in MainDB.TVEpisode.query.filter_by(showid=int(indexer_id)).filter(MainDB.TVEpisode.season != 0,
-                                                                            MainDB.TVEpisode.status.in_(status_list)):
+                                                                                      MainDB.TVEpisode.status.in_(
+                                                                                          status_list)):
             cur_season = int(dbData.season)
             cur_episode = int(dbData.episode)
 
@@ -113,8 +133,9 @@ class Manage(WebHandler):
     @staticmethod
     def showSubtitleMissed(indexer_id, whichSubs):
         result = {}
-        for dbData in MainDB.TVEpisode.query.filter_by(showid=int(indexer_id)).filter(MainDB.TVEpisode.status.endswith(4),
-                                                                            MainDB.TVEpisode.season != 0):
+        for dbData in MainDB.TVEpisode.query.filter_by(showid=int(indexer_id)).filter(
+                MainDB.TVEpisode.status.endswith(4),
+                MainDB.TVEpisode.season != 0):
             if whichSubs == 'all':
                 if not frozenset(sickrage.subtitles.wanted_languages()).difference(dbData["subtitles"].split(',')):
                     continue
@@ -250,8 +271,9 @@ class Manage(WebHandler):
 
             showResults[curShow.indexerid] = []
 
-            for curResult in MainDB.TVEpisode.query.filter_by(showid=curShow.indexerid).order_by(MainDB.TVEpisode.season.desc(),
-                                                                                       MainDB.TVEpisode.episode.desc()):
+            for curResult in MainDB.TVEpisode.query.filter_by(showid=curShow.indexerid).order_by(
+                    MainDB.TVEpisode.season.desc(),
+                    MainDB.TVEpisode.episode.desc()):
                 curEpCat = curShow.get_overview(int(curResult.status or -1))
                 if curEpCat:
                     epCats["{}x{}".format(curResult.season, curResult.episode)] = curEpCat
@@ -517,15 +539,15 @@ class Manage(WebHandler):
 
             exceptions_list = []
 
-            curErrors += self.editShow(curShow, new_show_dir, anyQualities,
-                                       bestQualities, exceptions_list,
-                                       defaultEpStatus=new_default_ep_status,
-                                       skip_downloaded=new_skip_downloaded,
-                                       flatten_folders=new_flatten_folders,
-                                       paused=new_paused, sports=new_sports,
-                                       subtitles=new_subtitles, anime=new_anime,
-                                       scene=new_scene, air_by_date=new_air_by_date,
-                                       directCall=True)
+            curErrors += [self.editShow(curShow, new_show_dir, anyQualities,
+                                        bestQualities, exceptions_list,
+                                        defaultEpStatus=new_default_ep_status,
+                                        skip_downloaded=new_skip_downloaded,
+                                        flatten_folders=new_flatten_folders,
+                                        paused=new_paused, sports=new_sports,
+                                        subtitles=new_subtitles, anime=new_anime,
+                                        scene=new_scene, air_by_date=new_air_by_date,
+                                        directCall=True)]
 
             if curErrors:
                 sickrage.app.log.error("Errors: " + str(curErrors))
