@@ -41,7 +41,7 @@
     "grunt-webpack": "^3.1.2",
     "imagesloaded": "^4.1.4",
     "isotope-layout": "^3.0.6",
-    "jquery": "^3.3.1",
+    "jquery": "^3.5.0",
     "jquery-backstretch": "^2.1.16",
     "jquery-bridget": "^2.0.1",
     "jquery-confirm": "^3.3.2",
