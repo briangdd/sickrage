@@ -47,7 +47,7 @@
     "jquery-confirm": "^3.3.2",
     "jquery-form": "^4.2.2",
     "jquery-ui": "^1.12.1",
-    "jquery-validation": "^1.17.0",
+    "jquery-validation": "^1.19.3",
     "load-grunt-tasks": "^3.4.1",
     "material-design-icons": "^3.0.1",
     "mini-css-extract-plugin": "^0.4.1",
